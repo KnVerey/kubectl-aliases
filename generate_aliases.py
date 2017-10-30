@@ -22,75 +22,85 @@ def main():
     # (alias, full, restrict_to_aliases, incompatible_with)
 
     cmds=[
-        ('k', 'kubectl', None, None),
-    ]
-
-    globs=[
-        ('sys','--namespace=kube-system', None, None),
-    ]
-
-    ops=[
-        ('a','apply -f', None, None),
-        ('ex','exec -i -t', None, None),
-        ('lo','logs -f', None, None),
-        ('p','proxy', None, ['sys']),
-        ('g','get', None, None),
-        ('d','describe', None, None),
-        ('rm','delete', None, None),
+        ('kg','kubectl get', None, None),
+        ('kd','kubectl describe', None, None),
     ]
 
     res=[
-        ('po','pods', ['g','d','rm'], None),
-        ('dep','deployment', ['g','d','rm'], None),
-        ('svc','service', ['g','d','rm'], None),
-        ('ing','ingress', ['g','d','rm'], None),
-        ('cm','configmap', ['g','d','rm'], None),
-        ('sec','secret', ['g','d','rm'], None),
-        ('no','nodes',['g','d'], ['sys']),
-        ('ns','namespaces',['g','d','rm'], ['sys']),
+        ('po','pods', ['kd'], None),
+        ('po',"pods -o=custom-columns-file=$KUBECTL_CUSTOM_COLUMNS_DIR/pod-columns.txt", ['kg'], None),
+        ('dep','deployment', ['kg','kd'], None),  # does not match official short name
+        ('svc','service', ['kg','kd'], None),
+        ('ing','ingress', ['kg','kd'], None),
+        ('cm','configmap', ['kg','kd'], None),
+        ('sec','secret', ['kg','kd'], None), # does not match official short name
+        ('no','nodes',['kg','kd'], None),
+        ('ns','namespaces',['kg','kd'], None),
+        ('crd','customresourcedefinitions', ['kg','kd'], None),
+        ('tpr','thirdpartyresources', ['kg','kd'], None), # does not match official short name
+        ('ds','daemonsets', ['kg','kd'], None),
+        ('cron','cronjobs', ['kg','kd'], None), # does not match official short name
+        ('ep','endpoints', ['kg','kd'], None),
+        ('ev','events', ['kg','kd'], None),
+        ('hpa','horizontalpodautoscalers', ['kg','kd'], None),
+        ('lr','limitranges', ['kg','kd'], None), # does not match official short name
+        ('job','jobs', ['kg','kd'], None),
+        ('pvc','persistentvolumeclaims', ['kg','kd'], None),
+        ('pv','persistentvolumes', ['kg','kd'], None),
+        ('pdb','poddisruptionbudgets', ['kg','kd'], None),
+        ('rs','replicasets', ['kg','kd'], None),
+        ('qta','resourcequotas', ['kg','kd'], None), # does not match official short name
+        ('sa','serviceaccounts', ['kg','kd'], None),
+        ('ss','statefulsets', ['kg','kd'], None),  # does not match official short name
+        ('stor','storageclasses', ['kg','kd'], None),  # does not match official short name
+        # CUSTOM RESOURCES
+        ('redis',"redises -o=custom-columns-file=$KUBECTL_CUSTOM_COLUMNS_DIR/redis-columns.txt", ['kg'], None),
+        ('redis',"redises", ['kd'], None),
+        ('sql',"cloudsql -o=custom-columns-file=$KUBECTL_CUSTOM_COLUMNS_DIR/cloudsql-columns.txt", ['kg'], None),
+        ('sql',"cloudsql", ['kd'], None),
+        ('bugs',"bugsnags -o=custom-columns-file=$KUBECTL_CUSTOM_COLUMNS_DIR/bugsnag-columns.txt", ['kg'], None),
+        ('bugs','bugsnags', ['kd'], None),
+        ('es',"elasticsearches -o=custom-columns-file=$KUBECTL_CUSTOM_COLUMNS_DIR/elasticsearch-columns.txt", ['kg'], None),
+        ('es','elasticsearches', ['kd'], None),
+        ('memd',"memcacheds -o=custom-columns-file=$KUBECTL_CUSTOM_COLUMNS_DIR/memcached-columns.txt", ['kg'], None),
+        ('memd','memcacheds', ['kd'], None),
+        ('state',"statefulservices -o=custom-columns-file=$KUBECTL_CUSTOM_COLUMNS_DIR/statefulservice-columns.txt", ['kg'], None),
+        ('state','statefulservices', ['kd'], None),
+        ('topic',"topics -o=custom-columns-file=$KUBECTL_CUSTOM_COLUMNS_DIR/topic-columns.txt", ['kg'], None),
+        ('topic','topics', ['kd'], None),
     ]
 
     args=[
-        ('oyaml','-o=yaml', ['g'], ['owide','ojson']),
-        ('owide','-o=wide', ['g'], ['oyaml','ojson']),
-        ('ojson','-o=json', ['g'], ['owide','oyaml']),
-        ('all', '--all-namespaces', ['g','d'], ['rm', 'f', 'no', 'sys']),
-        ('all', '--all', ['rm'], None), # caution: reusing alias
-        ('w', '--watch', ['g'], ['oyaml','ojson','owide']),
-    ]
-
-    # these accept a value, so they need to be at the end and
-    # mutually exclusive within each other.
-    positional_args=[
-        ('f', '-f', ['g', 'd', 'rm'], [r[0] for r in res]+['all', 'l']),
-        ('l', '-l', ['g', 'd', 'rm'], ['f', 'all']),
-        ('n', '--namespace', ['g', 'd', 'rm', 'lo', 'ex'], ['ns', 'no', 'sys', 'all']),
+        # ('oyaml','-o=yaml', ['kg'], ['owide','ojson']),
+        # ('owide','-o=wide', ['kg'], ['oyaml','ojson']),
+        # ('ojson','-o=json', ['kg'], ['owide','oyaml']),
+        ('all', '--all-namespaces', ['kg'], ['no','stor','pv','ns']),
+        # ('w', '--watch', ['kg'], ['oyaml','ojson']),
     ]
 
     # [(part, optional, take_exactly_one)]
     parts=[
         (cmds, False, True),
-        (globs, True, False),
-        (ops, True, True),
-        (res, True, True),
+        (res, False, True),
         (args, True, False),
-        (positional_args, True, True),
     ]
 
-    out = gen(parts)
+    out = gen(cmds, parts)
     out = filter(is_valid, out)
 
     # prepare output
     if not sys.stdout.isatty():
         header_path=os.path.join(os.path.dirname(os.path.realpath(__file__)), 'license_header')
         with open(header_path, 'r') as f: print f.read()
+    for cmd in cmds:
+        print "alias {}='{}'".format(cmd[0], cmd[1])
     for cmd in out:
         print "alias {}='{}'".format(
             ''.join([a[0] for a in cmd]),
             ' '.join([a[1] for a in cmd])
         )
 
-def gen(parts):
+def gen(cmds, parts):
     out = [()]
     for (items, optional, take_exactly_one) in parts:
         orig=list(out)
